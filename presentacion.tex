@@ -1,0 +1,214 @@
+\documentclass[aspectratio=169, 10pt]{beamer}
+
+% --- Paquetes Fundamentales ---
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{tikz}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins} 
+\usepackage{fontawesome5} 
+\usepackage{lmodern} 
+
+% --- Configuración de Colores Premium (Paleta "Deep Ocean") ---
+\definecolor{primary}{RGB}{0, 45, 98}      
+\definecolor{secondary}{RGB}{0, 112, 192}  
+\definecolor{accent}{RGB}{255, 165, 0}     
+\definecolor{lightgray}{RGB}{240, 240, 240}
+\definecolor{darkgray}{RGB}{50, 50, 50}
+
+% --- Personalización del Tema ---
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{normal text}{fg=darkgray}
+\setbeamercolor{background canvas}{bg=white}
+
+% Quitar barra de navegación
+\setbeamertemplate{navigation symbols}{}
+
+% --- Diseño de Fondo ---
+\setbeamertemplate{background}{
+    \begin{tikzpicture}[remember picture,overlay]
+        \fill[primary] (current page.north west) rectangle ([xshift=0.3cm]current page.south west);
+        \fill[secondary, opacity=0.8] (current page.north east) -- +(-2,0) -- +(0,-2) -- cycle;
+        \fill[accent, opacity=0.1] ([xshift=-1cm, yshift=1cm]current page.south east) circle (2cm);
+    \end{tikzpicture}
+}
+
+% --- Título de Diapositiva ---
+\setbeamertemplate{frametitle}{
+    \vspace{0.2cm}
+    \begin{beamercolorbox}[wd=\paperwidth,ht=1.2cm,dp=0.5cm,leftskip=0.5cm]{frametitle}
+        \Large \textbf{\insertframetitle} % Reducido de \Huge a \Large
+        \ifx\insertframesubtitle\@empty\else
+            \par\small\color{secondary}\insertframesubtitle
+        \fi
+    \end{beamercolorbox}
+    % Eliminada la línea decorativa inferior para evitar desbordes
+}
+
+% --- Cajas Personalizadas ---
+\newtcolorbox{premiumbox}[1]{
+    enhanced, 
+    colback=lightgray,
+    colframe=primary,
+    arc=5pt,
+    boxrule=1pt,
+    title=\textbf{#1},
+    coltitle=white,
+    fonttitle=\large,
+    shadow={2mm}{-2mm}{0mm}{black!20}
+}
+
+\newtcolorbox{alertbox}[1]{
+    enhanced, 
+    colback=red!5,
+    colframe=red!70!black,
+    arc=5pt,
+    boxrule=1pt,
+    title=\textbf{#1},
+    coltitle=white,
+    fonttitle=\large,
+    shadow={2mm}{-2mm}{0mm}{black!20}
+}
+
+% --- Metadatos ---
+\title{\textbf{Agente de Navegación Autónoma}}
+\subtitle{Implementación con Policy Gradient (REINFORCE)}
+\author{\textbf{Taller de Machine Learning}} 
+\date{\today}
+
+\begin{document}
+
+% --- Diapositiva 1: Portada ---
+{
+\setbeamertemplate{background}{
+    \begin{tikzpicture}[remember picture,overlay]
+        \shade[top color=primary, bottom color=secondary] (current page.south west) rectangle (current page.north east);
+        \draw[white, opacity=0.1, line width=2pt] ([xshift=2cm]current page.south west) circle (5cm);
+        \draw[white, opacity=0.1, line width=2pt] ([xshift=-2cm]current page.north east) circle (4cm);
+        \draw[white, opacity=0.05, step=1cm] (current page.south west) grid (current page.north east);
+    \end{tikzpicture}
+}
+\begin{frame}[plain]
+    \centering
+    \vspace{0.5cm}
+    \color{white}
+    \Huge \textbf{Agente de Navegación Autónoma} \\
+    \vspace{0.3cm}
+    \Large \textit{Optimizando Rutas con Inteligencia Artificial}
+    \vspace{1.5cm}
+    \begin{tcolorbox}[enhanced, colback=white!10, colframe=white, width=0.6\textwidth, arc=10pt, boxrule=0pt]
+        \centering \color{white} \textbf{Actividad 2 - Policy Gradient}
+    \end{tcolorbox}
+    \vspace{1cm}
+    \small \today
+\end{frame}
+}
+
+% --- Diapositiva 2: El Desafío ---
+\begin{frame}{El Desafío (Inteligencia)}
+    \begin{columns}
+        \column{0.6\textwidth}
+        \begin{premiumbox}{Objetivo Principal}
+            Desarrollar un agente capaz de navegar autónomamente en un entorno complejo (Grid 9x9) desde un punto \textbf{A} hasta un punto \textbf{B}.
+        \end{premiumbox}
+        \vspace{0.5cm}
+        \textbf{\faExclamationTriangle \ Dificultades del Entorno:}
+        \begin{itemize}
+            \item \textbf{Obstáculos ("Hoyos"):} Terminan el episodio inmediatamente (Castigo -1.0).
+            \item \textbf{Recompensas:} Meta principal (+1.0) y Objeto opcional (+0.7).
+        \end{itemize}
+        \column{0.35\textwidth}
+        \centering
+        \begin{figure}
+            \centering
+            \begin{tikzpicture}[scale=0.8]
+                \draw[step=0.5cm, gray!30, very thin] (0,0) grid (3,3);
+                \fill[green!50] (0.1,2.6) rectangle (0.4,2.9); % Start
+                \fill[red!50] (1.6,1.6) rectangle (1.9,1.9);   % Hole
+                \fill[blue!50] (2.6,0.1) rectangle (2.9,0.4);  % Goal
+                \draw[->, thick, primary] (0.25, 2.75) -- (1.25, 2.75) -- (1.25, 1.25) -- (2.75, 1.25) -- (2.75, 0.25);
+            \end{tikzpicture}
+            \vspace{0.2cm}
+            \caption{\textit{Esquema de Navegación}}
+        \end{figure}
+    \end{columns}
+\end{frame}
+
+% --- Diapositiva 3: La Estrategia ---
+\begin{frame}{La Estrategia (Proceso Empresarial)}
+    \begin{alertblock}{Cambio de Paradigma}
+        Abandonamos la programación imperativa ("Si X, haz Y") por un enfoque de \textbf{Aprendizaje Automático}.
+    \end{alertblock}
+    \vspace{0.5cm}
+    \begin{itemize}
+        \item[\faBrain] \textbf{Aprendizaje Empírico:} El agente no conoce las reglas físicas; las descubre interactuando (Prueba y Error).
+        \item[\faRedo] \textbf{Simulación Masiva:} Ejecución de \textbf{10,000 episodios} para refinar la política de toma de decisiones.
+        \item[\faChartLine] \textbf{Optimización:} El sistema mejora gradualmente buscando maximizar la recompensa total acumulada.
+    \end{itemize}
+\end{frame}
+
+% --- Diapositiva 4: Solución Técnica ---
+\begin{frame}{Solución Técnica (Tecnología)}
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{Algoritmo: Policy Gradient (REINFORCE)}
+        \vspace{0.3cm}
+        El "cerebro" del agente es una tabla de probabilidades (Softmax) que se ajusta dinámicamente.
+        \vspace{0.3cm}
+        \begin{premiumbox}{Mecánica de Aprendizaje}
+            \begin{enumerate}
+                \item El agente actúa aleatoriamente al inicio.
+                \item Si gana $\rightarrow$ \textbf{Refuerza} las acciones.
+                \item Si pierde $\rightarrow$ \textbf{Debilita} las acciones.
+            \end{enumerate}
+        \end{premiumbox}
+
+        \column{0.4\textwidth}
+        \centering
+        % --- CORRECCIÓN 1: Color del texto forzado ---
+        \begin{tcolorbox}[enhanced, colback=black!85, colframe=black, title=\textbf{Stack Tecnológico}, shadow={2mm}{-2mm}{0mm}{black!30}]
+            % Forzamos el color blanco explícitamente dentro de la caja y para los items
+            \color{white}
+            \setbeamercolor{itemize item}{fg=white}
+            \setbeamercolor{item}{fg=white}
+            \setbeamercolor{normal text}{fg=white}
+            \usebeamercolor[fg]{normal text}
+            \begin{itemize}
+                \item \textbf{\faPython \ Python 3.x}: Núcleo.
+                \item \textbf{\faCubes \ NumPy}: Matemática.
+                \item \textbf{\faChartBar \ Matplotlib}: Gráficos.
+            \end{itemize}
+        \end{tcolorbox}
+    \end{columns}
+\end{frame}
+
+% --- Diapositiva 5: Resultados y Riesgos ---
+\begin{frame}{Resultados y Riesgos (Proceso de Cambio)}
+    \begin{premiumbox}{Hallazgo Clave: Aversión al Riesgo}
+        El agente desarrolló un comportamiento \textbf{"Conservador"}.
+    \end{premiumbox}
+
+    \vspace{0.2cm}
+
+    \begin{columns}
+        \column{0.6\textwidth}
+        \footnotesize 
+        \begin{itemize}
+            \item \textbf{Observación:} El agente ignora sistemáticamente el objeto de bonificación (+0.7).
+            \item \textbf{Causa:} El objeto está rodeado de "hoyos". El riesgo de muerte (-1.0) supera la ganancia potencial.
+            \item \textbf{Conclusión:} El algoritmo prioriza la seguridad y el cumplimiento de la misión principal.
+        \end{itemize}
+        
+        \column{0.35\textwidth}
+        \centering
+        % --- CORRECCIÓN 2: 'transform shape' para arreglar el zoom ---
+        \begin{tikzpicture}[scale=0.7, transform shape] 
+            \node[circle, fill=green!20, draw=green, thick, minimum size=1.2cm] (safe) at (0,0) {\footnotesize Seguro};
+            \node[circle, fill=red!20, draw=red, thick, minimum size=1.2cm] (risk) at (2.5,0) {\footnotesize Riesgo};
+            \draw[->, very thick, primary] (safe) to[bend left] node[above] {\scriptsize Preferencia} (risk);
+            \node at (1.25, -1) {\scriptsize \textbf{Decisión del Agente}};
+        \end{tikzpicture}
+    \end{columns}
+\end{frame}
+
+\end{document}
